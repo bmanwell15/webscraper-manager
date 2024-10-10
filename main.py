@@ -1,8 +1,7 @@
 from rich.table import Table
 from rich.console import Console
-from rich.live import Live
 from rich.box import MINIMAL
-from datetime import datetime, timedelta
+from datetime import datetime
 import time
 import threading
 
@@ -21,16 +20,18 @@ class WebScraperManager:
             
         for scraper in WebScraperManager.webScrapers.values():
             scraperStatus = WebScraperManager.interpretStatusCode(scraper.status)
-            nextCycleAt = str(datetime.fromtimestamp(scraper.nextCycleTimeAt))
+            cycleTime = f"{scraper.cycleTime} sec" if scraper.mode == "Interval" else "--"
+            nextCycleAt = str(datetime.fromtimestamp(scraper.nextCycleTimeAt)) if scraper.nextCycleTimeAt != "--" else "[white]---"
             nextCycleAt = nextCycleAt[:nextCycleAt.find(".")]
-            lastCycleAt = str(datetime.fromtimestamp(scraper.lastCycleTimeAt))
+            
+            lastCycleAt = str(datetime.fromtimestamp(scraper.lastCycleTimeAt)) if scraper.lastCycleTimeAt != "--" else "[white]---"
             lastCycleAt = lastCycleAt[:lastCycleAt.find(".")]
             row = [
                 str(index),
                 str(scraper.name),
                 str(scraper.lastLoopOutput),
                 str(scraperStatus),
-                f"{scraper.cycleTime} sec",
+                str(cycleTime),
                 str(lastCycleAt),
                 str(nextCycleAt),
                 str(scraper.core),
@@ -69,6 +70,7 @@ class WebScraperManager:
                 return
             print("Loaded scraper from", commandSegments[1])
     
+
     def loadScaper(filepath: str):
         print("Loading scraper from ", filepath, "...", sep="")
         print("Reading file contents...")
@@ -82,61 +84,70 @@ class WebScraperManager:
         className = scraperContent[scraperContent.find("class ") + 6: scraperContent.index("(", scraperContent.find("class ") + 6)]
         exec(scraperContent, WebScraperManager.webScraperClasses)
         scraper = WebScraperManager.webScraperClasses[className]() # scraper is of type or subtype Scraper()
+        scraper.name = className
         WebScraperManager.webScrapers[scraper.name] = scraper
         scraper.fileSize = scraperFileSize
+        
         print("Calling startup...")
         try:
             scraper._start()
         except:
             scraper.status = -1
             print("Failed to start!")
-            time.sleep(3)
-            WebScraperManager.updateDataTable()
+        
+        threading.Thread(target=WebScraperManager.processScheduler, daemon=True, args=(scraper)).start()
+
+        WebScraperManager.updateDataTable()
     
 
-    def processScheduler():
+    def processScheduler(scraper):
         while not WebScraperManager.sendingCommand:
             for scraperName in WebScraperManager.webScrapers:
-                if time.time() >= WebScraperManager.webScrapers[scraperName].nextCycleTimeAt:
+                if WebScraperManager.webScrapers[scraperName].nextCycleTimeAt != "--" and time.time() >= WebScraperManager.webScrapers[scraperName].nextCycleTimeAt:
                     WebScraperManager.webScrapers[scraperName].status = 2
-                    WebScraperManager.updateDataTable()
+                    if not WebScraperManager.sendingCommand:
+                        WebScraperManager.updateDataTable()
+                    catchException = False
                     try:
                         loopResults = WebScraperManager.webScrapers[scraperName].loop()
                     except:
-                        loopResults = ["", -1]
+                        loopResults = ""
+                        catchException = True
+                        WebScraperManager.webScrapers[scraperName].status = -1
                         return
-                    WebScraperManager.webScrapers[scraperName].lastLoopOutput = loopResults[0]
-                    WebScraperManager.webScrapers[scraperName].status = loopResults[1]
-                    WebScraperManager.webScrapers[scraperName].nextCycleTimeAt = time.time() + WebScraperManager.webScrapers[scraperName].cycleTime
+                    WebScraperManager.webScrapers[scraperName].lastLoopOutput = loopResults
+                    if not catchException:
+                        WebScraperManager.webScrapers[scraperName].status = 3 if WebScraperManager.webScrapers[scraperName].mode == "Schedule" else 1
+
                     WebScraperManager.webScrapers[scraperName].lastCycleTimeAt = time.time()
-                    WebScraperManager.updateDataTable()
+                    if WebScraperManager.webScrapers[scraperName].mode == "Interval":
+                        WebScraperManager.webScrapers[scraperName].nextCycleTimeAt = time.time() + WebScraperManager.webScrapers[scraperName].cycleTime
+                    else:
+                        WebScraperManager.webScrapers[scraperName].nextCycleTimeAt = "--"
+                    
+                    if not WebScraperManager.sendingCommand:
+                        WebScraperManager.updateDataTable()
     
 
     def interpretStatusCode(code: int):
         if code == 1: return "[green]OK"
         if code == 2: return "[blue]RUNNING"
-        if code > 2: return f"[yellow]WARNING [{code}]"
+        if code == 3: return "[cyan]DONE"
+        if code > 3: return f"[yellow]WARNING [{code}]"
         if code < 0: return f"[red]ERROR [{code}]"
         return f"UNKOWN"
 
 
 def main():
-    updateDataTableThread = threading.Thread(target=WebScraperManager.processScheduler, daemon=True)
-    updateDataTableThread.start()
     WebScraperManager.updateDataTable()
-     
     while True:
         input()
         WebScraperManager.sendingCommand = True
-        updateDataTableThread.join()
         print("\033c", end="")
         WebScraperManager.updateDataTable()
         command = input("> ")
         WebScraperManager.processCommand(command)
         WebScraperManager.sendingCommand = False
-
-        updateDataTableThread = threading.Thread(target=WebScraperManager.processScheduler, daemon=True)
-        updateDataTableThread.start()
 
 
 if __name__ == "__main__":
