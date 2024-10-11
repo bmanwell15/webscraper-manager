@@ -29,10 +29,16 @@ class Scraper:
         self.mode = mode
         self.cycleTime = cycleTime if mode == "Interval" else "--"
         self.lastLoopOutput = "No Output Made"
-        self.nextCycleTimeAt = time.time() + cycleTime if mode == "Interval" else scheduleModeTime.timestamp()
+
+        if mode == "Interval":
+            self.nextCycleTimeAt = time.time() + cycleTime 
+        elif mode == "Schedule":
+            self.nextCycleTimeAt = scheduleModeTime.timestamp()
+        elif mode == "Time":
+            self.nextCycleTimeAt = scheduleModeTime.time()
+
         self.lastCycleTimeAt = time.time() if mode == "Interval" else "--"
-        self.fileSize = None
-        self.core = None
+        self.fileSize = 0
         self.status = 0
     
 
@@ -62,9 +68,14 @@ class IntervalScraper(Scraper):
     def __init__(self, cycleTime=300):
         super().__init__(cycleTime)
 
+ 
+class TimedScraper(Scraper):
+    def __init__(self, scheduleTime: datetime):
+        super().__init__("--", "Time", scheduleTime)
+
 
 class ScheduledScraper(Scraper):
-    def __init__(self, scheduleModeTime):
+    def __init__(self, scheduleModeTime: datetime):
         super().__init__("--", "Schedule", scheduleModeTime)
     
     def loop(self):
@@ -73,7 +84,3 @@ class ScheduledScraper(Scraper):
     def execute(self):
         out = "No execute function initialized..."
         return out
-
-class TimedScraper(Scraper):
-    def __init__(self, scheduleTime):
-        super().__init__("--", "Timed", scheduleTime)

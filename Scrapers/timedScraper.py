@@ -1,17 +1,17 @@
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
+from datetime import datetime
 from Scrapers.Scraper import *
 
-
-class GetTime(IntervalScraper):
+class Timed(TimedScraper):
     URL = "https://www.time.gov/"
 
-    def __init__(self, cycleTime=10) -> None:
-        super().__init__(cycleTime)
+    def __init__(self):
+        super().__init__(datetime.strptime("17:32", "%H:%M"))
 
     def setup(self):
         self.driver = Scraper.getDriver()
-        self.driver.get(GetTime.URL)
+        self.driver.get(Timed.URL)
     
     def loop(self):
         o = self.driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[1]/div[5]/div/div/div[3]/div[2]/time").text

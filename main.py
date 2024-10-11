@@ -21,11 +21,15 @@ class WebScraperManager:
         for scraper in WebScraperManager.webScrapers.values():
             scraperStatus = WebScraperManager.interpretStatusCode(scraper.status)
             cycleTime = f"{scraper.cycleTime} sec" if scraper.mode == "Interval" else "--"
-            nextCycleAt = str(datetime.fromtimestamp(scraper.nextCycleTimeAt)) if scraper.nextCycleTimeAt != "--" else "[white]---"
-            nextCycleAt = nextCycleAt[:nextCycleAt.find(".")]
-            
-            lastCycleAt = str(datetime.fromtimestamp(scraper.lastCycleTimeAt)) if scraper.lastCycleTimeAt != "--" else "[white]---"
-            lastCycleAt = lastCycleAt[:lastCycleAt.find(".")]
+            if scraper.mode != "Time":
+                nextCycleAt = str(datetime.fromtimestamp(scraper.nextCycleTimeAt)) if scraper.nextCycleTimeAt != "--" else "[white]---"
+                nextCycleAt = nextCycleAt[:nextCycleAt.find(".")]
+                lastCycleAt = str(datetime.fromtimestamp(scraper.lastCycleTimeAt)) if scraper.lastCycleTimeAt != "--" else "[white]---"
+                lastCycleAt = lastCycleAt[:lastCycleAt.find(".")]
+            else:
+                nextCycleAt = scraper.nextCycleTimeAt
+                lastCycleAt = str(datetime.fromtimestamp(scraper.lastCycleTimeAt)) if scraper.lastCycleTimeAt != "--" else "[white]---"
+                lastCycleAt = lastCycleAt[:lastCycleAt.find(".")]
             row = [
                 str(index),
                 str(scraper.name),
@@ -34,7 +38,6 @@ class WebScraperManager:
                 str(cycleTime),
                 str(lastCycleAt),
                 str(nextCycleAt),
-                str(scraper.core),
                 f"{(scraper.fileSize/1024):.2f}KB"
             ]
             rows.append(row)
@@ -50,7 +53,6 @@ class WebScraperManager:
         table.add_column("Cycle Time")
         table.add_column("Last Cycle")
         table.add_column("Next Cycle At", style="green")
-        table.add_column("Core")
         table.add_column("File Size")
         for row in WebScraperManager.createDataRows():
             table.add_row(*row)
@@ -95,38 +97,47 @@ class WebScraperManager:
             scraper.status = -1
             print("Failed to start!")
         
-        threading.Thread(target=WebScraperManager.processScheduler, daemon=True, args=(scraper)).start()
-
+        threading.Thread(target=WebScraperManager.processScheduler, daemon=True, args=[scraper]).start()
         WebScraperManager.updateDataTable()
     
 
     def processScheduler(scraper):
-        while not WebScraperManager.sendingCommand:
-            for scraperName in WebScraperManager.webScrapers:
-                if WebScraperManager.webScrapers[scraperName].nextCycleTimeAt != "--" and time.time() >= WebScraperManager.webScrapers[scraperName].nextCycleTimeAt:
-                    WebScraperManager.webScrapers[scraperName].status = 2
-                    if not WebScraperManager.sendingCommand:
-                        WebScraperManager.updateDataTable()
-                    catchException = False
-                    try:
-                        loopResults = WebScraperManager.webScrapers[scraperName].loop()
-                    except:
-                        loopResults = ""
-                        catchException = True
-                        WebScraperManager.webScrapers[scraperName].status = -1
-                        return
-                    WebScraperManager.webScrapers[scraperName].lastLoopOutput = loopResults
-                    if not catchException:
-                        WebScraperManager.webScrapers[scraperName].status = 3 if WebScraperManager.webScrapers[scraperName].mode == "Schedule" else 1
+        while True:
+            currentTime = datetime.now().time()
+            if (scraper.mode != "Time" and scraper.nextCycleTimeAt != "--" and time.time() >= scraper.nextCycleTimeAt) or (scraper.mode == "Time" and currentTime.hour == scraper.nextCycleTimeAt.hour and currentTime.minute == scraper.nextCycleTimeAt.minute):
+                scraper.status = 2
+                if not WebScraperManager.sendingCommand:
+                    WebScraperManager.lock.acquire()
+                    WebScraperManager.updateDataTable()
+                    WebScraperManager.lock.release()
 
-                    WebScraperManager.webScrapers[scraperName].lastCycleTimeAt = time.time()
-                    if WebScraperManager.webScrapers[scraperName].mode == "Interval":
-                        WebScraperManager.webScrapers[scraperName].nextCycleTimeAt = time.time() + WebScraperManager.webScrapers[scraperName].cycleTime
-                    else:
-                        WebScraperManager.webScrapers[scraperName].nextCycleTimeAt = "--"
-                    
-                    if not WebScraperManager.sendingCommand:
-                        WebScraperManager.updateDataTable()
+                catchException = False
+                try:
+                    loopResults = scraper.loop()
+                except:
+                    loopResults = ""
+                    catchException = True
+                    scraper.status = -1
+                    return
+
+                if not catchException:
+                    scraper.status = 3 if scraper.mode == "Schedule" else 1
+
+                scraper.lastCycleTimeAt = time.time()
+                scraper.lastLoopOutput = loopResults
+
+                if scraper.mode == "Interval":
+                    scraper.nextCycleTimeAt = time.time() + scraper.cycleTime
+                elif scraper.mode == "Schedule":
+                    scraper.nextCycleTimeAt = "--"
+                
+                if not WebScraperManager.sendingCommand:
+                    WebScraperManager.lock.acquire()
+                    WebScraperManager.updateDataTable()
+                    WebScraperManager.lock.release()
+                
+                if scraper.mode == "Schedule": break
+                if scraper.mode == "Time": time.sleep(120)
     
 
     def interpretStatusCode(code: int):

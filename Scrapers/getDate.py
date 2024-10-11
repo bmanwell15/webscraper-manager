@@ -17,6 +17,3 @@ class GetDate(IntervalScraper):
         self.driver.refresh()
         o = self.driver.find_element(By.XPATH, "/html/body/div[1]/div[3]/div[1]/div/article/div[1]/div[1]/p/span").text
         return o
-    
-    def __str__(self) -> str:
-        return f"{self.name}, {self.status}, {self.nextCycleTimeAt}"
