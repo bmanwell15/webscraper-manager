@@ -1,0 +1,3 @@
+./Scrapers/timedScraper.py
+./Scrapers/getTime.py
+./Scrapers/getDate.py

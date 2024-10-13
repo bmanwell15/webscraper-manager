@@ -30,15 +30,9 @@ class Scraper:
         self.cycleTime = cycleTime if mode == "Interval" else "--"
         self.lastLoopOutput = "No Output Made"
 
-        if mode == "Interval":
-            self.nextCycleTimeAt = time.time() + cycleTime 
-        elif mode == "Schedule":
-            self.nextCycleTimeAt = scheduleModeTime.timestamp()
-        elif mode == "Time":
-            self.nextCycleTimeAt = scheduleModeTime.time()
-
+        self.nextCycleTimeAt = time.time() + cycleTime if mode == "Interval" else scheduleModeTime.timestamp()
         self.lastCycleTimeAt = time.time() if mode == "Interval" else "--"
-        self.fileSize = 0
+        self.memUsed = 0
         self.status = 0
     
 

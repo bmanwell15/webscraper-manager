@@ -7,7 +7,7 @@ class Timed(TimedScraper):
     URL = "https://www.time.gov/"
 
     def __init__(self):
-        super().__init__(datetime.strptime("17:32", "%H:%M"))
+        super().__init__(datetime(2024, 10, 10, 20, 42))
 
     def setup(self):
         self.driver = Scraper.getDriver()

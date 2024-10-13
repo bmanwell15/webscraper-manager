@@ -21,15 +21,11 @@ class WebScraperManager:
         for scraper in WebScraperManager.webScrapers.values():
             scraperStatus = WebScraperManager.interpretStatusCode(scraper.status)
             cycleTime = f"{scraper.cycleTime} sec" if scraper.mode == "Interval" else "--"
-            if scraper.mode != "Time":
-                nextCycleAt = str(datetime.fromtimestamp(scraper.nextCycleTimeAt)) if scraper.nextCycleTimeAt != "--" else "[white]---"
-                nextCycleAt = nextCycleAt[:nextCycleAt.find(".")]
-                lastCycleAt = str(datetime.fromtimestamp(scraper.lastCycleTimeAt)) if scraper.lastCycleTimeAt != "--" else "[white]---"
-                lastCycleAt = lastCycleAt[:lastCycleAt.find(".")]
-            else:
-                nextCycleAt = scraper.nextCycleTimeAt
-                lastCycleAt = str(datetime.fromtimestamp(scraper.lastCycleTimeAt)) if scraper.lastCycleTimeAt != "--" else "[white]---"
-                lastCycleAt = lastCycleAt[:lastCycleAt.find(".")]
+            
+            nextCycleAt = str(datetime.fromtimestamp(scraper.nextCycleTimeAt)) if scraper.nextCycleTimeAt != "--" else "[white]---"
+            nextCycleAt = nextCycleAt[:nextCycleAt.find(".")]
+            lastCycleAt = str(datetime.fromtimestamp(scraper.lastCycleTimeAt)) if scraper.lastCycleTimeAt != "--" else "[white]---"
+            lastCycleAt = lastCycleAt[:lastCycleAt.find(".")]
             row = [
                 str(index),
                 str(scraper.name),
@@ -45,6 +41,7 @@ class WebScraperManager:
         return rows
 
     def updateDataTable(dowhile=True):
+        WebScraperManager.lock.acquire()
         table = Table(box=MINIMAL)
         table.add_column("Index", style="white bold", width=5)
         table.add_column("Name", style="purple")
@@ -59,6 +56,7 @@ class WebScraperManager:
         
         print("\033c", end="")
         WebScraperManager.console.print(table)
+        WebScraperManager.lock.release()
 
     
     def processCommand(command: str):
@@ -71,9 +69,17 @@ class WebScraperManager:
                 print("The file", commandSegments[1], "was not found...")
                 return
             print("Loaded scraper from", commandSegments[1])
+        elif commandSegments[0] == "save":
+            print("Saving data...")
+            WebScraperManager.save()
+            print("Save complete!")
+        elif commandSegments[0] == "restore":
+            print("Loading Save...")
+            WebScraperManager.restoreSave()
+            print("Complete!")
     
 
-    def loadScaper(filepath: str):
+    def loadScaper(filepath: str, resoringSave=False):
         print("Loading scraper from ", filepath, "...", sep="")
         print("Reading file contents...")
 
@@ -87,6 +93,7 @@ class WebScraperManager:
         exec(scraperContent, WebScraperManager.webScraperClasses)
         scraper = WebScraperManager.webScraperClasses[className]() # scraper is of type or subtype Scraper()
         scraper.name = className
+        scraper.filePath = filepath
         WebScraperManager.webScrapers[scraper.name] = scraper
         scraper.fileSize = scraperFileSize
         
@@ -98,18 +105,33 @@ class WebScraperManager:
             print("Failed to start!")
         
         threading.Thread(target=WebScraperManager.processScheduler, daemon=True, args=[scraper]).start()
-        WebScraperManager.updateDataTable()
+        if not resoringSave:
+            WebScraperManager.updateDataTable()
+    
+    def save():
+        saveFile = open("save.data", "w")
+        for scraper in WebScraperManager.webScrapers.values():
+            print(scraper.filePath, file=saveFile)
+    
+    def restoreSave():
+        saveFile = open("save.data", "r")
+        lines = saveFile.readlines()
+        saveFile.close()
+        for line in lines:
+            line = line.replace("\n", "")
+            try:
+                WebScraperManager.loadScaper(line, True)
+            except FileNotFoundError:
+                print("The file", line, "was not found...")
     
 
     def processScheduler(scraper):
         while True:
             currentTime = datetime.now().time()
-            if (scraper.mode != "Time" and scraper.nextCycleTimeAt != "--" and time.time() >= scraper.nextCycleTimeAt) or (scraper.mode == "Time" and currentTime.hour == scraper.nextCycleTimeAt.hour and currentTime.minute == scraper.nextCycleTimeAt.minute):
+            if (scraper.nextCycleTimeAt != "--" and time.time() >= scraper.nextCycleTimeAt):
                 scraper.status = 2
                 if not WebScraperManager.sendingCommand:
-                    WebScraperManager.lock.acquire()
                     WebScraperManager.updateDataTable()
-                    WebScraperManager.lock.release()
 
                 catchException = False
                 try:
@@ -130,11 +152,11 @@ class WebScraperManager:
                     scraper.nextCycleTimeAt = time.time() + scraper.cycleTime
                 elif scraper.mode == "Schedule":
                     scraper.nextCycleTimeAt = "--"
+                elif scraper.mode == "Time":
+                    scraper.nextCycleTimeAt = time.time() + (24 * 60 * 60) # Seconds in one day
                 
                 if not WebScraperManager.sendingCommand:
-                    WebScraperManager.lock.acquire()
                     WebScraperManager.updateDataTable()
-                    WebScraperManager.lock.release()
                 
                 if scraper.mode == "Schedule": break
                 if scraper.mode == "Time": time.sleep(120)
@@ -147,7 +169,7 @@ class WebScraperManager:
         if code > 3: return f"[yellow]WARNING [{code}]"
         if code < 0: return f"[red]ERROR [{code}]"
         return f"UNKOWN"
-
+# END CLASS
 
 def main():
     WebScraperManager.updateDataTable()
