@@ -1,3 +1,4 @@
 ./Scrapers/timedScraper.py
 ./Scrapers/getTime.py
 ./Scrapers/getDate.py
+./Scrapers/scheduledScraper.py

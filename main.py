@@ -77,6 +77,30 @@ class WebScraperManager:
             print("Loading Save...")
             WebScraperManager.restoreSave()
             print("Complete!")
+        elif commandSegments[0] == "delete":
+            try:
+                a = commandSegments[2]
+            except IndexError:
+                commandSegments.append("filepath")
+
+            print("Deleting scraper from", commandSegments[1])
+            for scraper in WebScraperManager.webScrapers:
+                if (commandSegments[2] == "filepath" and scraper.filePath == commandSegments[1]) or (commandSegments[2] == "name" and scraper.name == commandSegments[1]) or (commandSegments[2] == "mode" and scraper.mode == commandSegments[1]):
+                    WebScraperManager.webScrapers.pop(scraper.name)
+                    WebScraperManager.webScraperClasses.pop(scraper.name)
+                    break
+            print("Deleted Scraper")
+        elif commandSegments[0] == "help":
+            print("Running Webscraper Manager V1.0.0")
+            print("List of commands:")
+            print("\t- help\n\tShows this page")
+            print("\n\t- load [filepath]\n\tLoads the scraper from the specified file path. The filepath but lead to a python file that contains one subclass of a Scraper type.")
+            print("\n\t- save\n\tSaves the current scrapers into a save file that can be restored if the program is stopped")
+            print("\n\t- restore\n\tLoads all scapers in the save file (save.data).")
+            print("\n\t- delete [filepath] [specifier]\n\tDeletes the specified scraper. The specifier flag is optional and it specifies how the scraper will be found. Possible options are name, filepath, or mode. The default is filepath.")
+            print("\n\nPress enter to return.")
+            input()
+            WebScraperManager.updateDataTable()
     
 
     def loadScaper(filepath: str, resoringSave=False):
@@ -117,17 +141,20 @@ class WebScraperManager:
         saveFile = open("save.data", "r")
         lines = saveFile.readlines()
         saveFile.close()
+        index = 1
         for line in lines:
+            print("Loading Scraper", index, "of", len(lines))
             line = line.replace("\n", "")
             try:
                 WebScraperManager.loadScaper(line, True)
             except FileNotFoundError:
                 print("The file", line, "was not found...")
+            index += 1
     
 
     def processScheduler(scraper):
         while True:
-            currentTime = datetime.now().time()
+            if scraper.isDeleted: break
             if (scraper.nextCycleTimeAt != "--" and time.time() >= scraper.nextCycleTimeAt):
                 scraper.status = 2
                 if not WebScraperManager.sendingCommand:
