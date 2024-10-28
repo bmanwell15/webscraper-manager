@@ -2,6 +2,7 @@ from rich.table import Table
 from rich.console import Console
 from rich.box import MINIMAL
 from datetime import datetime
+from sys import exit
 import time
 import threading
 
@@ -71,12 +72,18 @@ class WebScraperManager:
             print("Loaded scraper from", commandSegments[1])
         elif commandSegments[0] == "save":
             print("Saving data...")
-            WebScraperManager.save()
+            try:
+                filepath = commandSegments[1]
+            except IndexError:
+                filepath = "save.data"
+            WebScraperManager.save(filepath)
             print("Save complete!")
         elif commandSegments[0] == "restore":
-            print("Loading Save...")
-            WebScraperManager.restoreSave()
-            print("Complete!")
+            try:
+                filepath = commandSegments[1]
+            except IndexError:
+                filepath = "save.data"
+            WebScraperManager.restoreSave(filepath)
         elif commandSegments[0] == "delete":
             try:
                 a = commandSegments[2]
@@ -94,13 +101,17 @@ class WebScraperManager:
             print("Running Webscraper Manager V1.0.0")
             print("List of commands:")
             print("\t- help\n\tShows this page")
+            print("\t- quit\n\tExits the program. All scrapers will be stopped.")
             print("\n\t- load [filepath]\n\tLoads the scraper from the specified file path. The filepath but lead to a python file that contains one subclass of a Scraper type.")
-            print("\n\t- save\n\tSaves the current scrapers into a save file that can be restored if the program is stopped")
-            print("\n\t- restore\n\tLoads all scapers in the save file (save.data).")
+            print("\n\t- save [filepath]\n\tSaves the current scrapers into a save file that can be restored if the program is stopped. Takes an optional filepath command which specifies where the saved data will be stored. The default if save.data.")
+            print("\n\t- restore [filepath]\n\tLoads all scapers in the save file. The optional filepath parameter specifies the save file. The default is save.data")
             print("\n\t- delete [filepath] [specifier]\n\tDeletes the specified scraper. The specifier flag is optional and it specifies how the scraper will be found. Possible options are name, filepath, or mode. The default is filepath.")
             print("\n\nPress enter to return.")
             input()
             WebScraperManager.updateDataTable()
+        elif commandSegments[0] == "quit":
+            print("Exiting Program...")
+            exit()
     
 
     def loadScaper(filepath: str, resoringSave=False):
@@ -132,13 +143,18 @@ class WebScraperManager:
         if not resoringSave:
             WebScraperManager.updateDataTable()
     
-    def save():
-        saveFile = open("save.data", "w")
+    def save(filepath: str):
+        filepath = f"{filepath}.data" if not filepath.count(".") else filepath
+        saveFile = open(filepath, "w")
         for scraper in WebScraperManager.webScrapers.values():
             print(scraper.filePath, file=saveFile)
     
-    def restoreSave():
-        saveFile = open("save.data", "r")
+    def restoreSave(filepath):
+        try:
+            saveFile = open(filepath, "r")
+        except FileNotFoundError:
+            print("File was not found...")
+            return
         lines = saveFile.readlines()
         saveFile.close()
         index = 1
@@ -150,6 +166,7 @@ class WebScraperManager:
             except FileNotFoundError:
                 print("The file", line, "was not found...")
             index += 1
+        print("Complete!")
     
 
     def processScheduler(scraper):

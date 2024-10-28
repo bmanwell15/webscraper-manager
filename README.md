@@ -9,6 +9,7 @@ Created By Benjamin Manwell
 | Version | Date | Release Notes |
 |---------|------|---------------|
 | 1.0.0   | 10/26/2024 | Initial Release |
+| 1.0.1   | 10/28/2024 | Added quit command.&nbsp;*save* and *restore* commands can now take filepaths are parameters.
 
 ## Using the Manager
 
