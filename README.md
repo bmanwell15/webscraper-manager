@@ -6,10 +6,10 @@ Created By Benjamin Manwell
 
 ## Version Log
 
-| Version | Date | Release Notes |
-|---------|------|---------------|
-| 1.0.0   | 10/26/2024 | Initial Release |
-| 1.0.1   | 10/28/2024 | Added quit command.&nbsp;*save* and *restore* commands can now take filepaths are parameters.
+| Version | Date       | Release Notes                                                                                     |
+| ------- | ---------- | ------------------------------------------------------------------------------------------------- |
+| 1.0.0   | 10/26/2024 | Initial Release                                                                                   |
+| 1.0.1   | 10/28/2024 | Added quit command.&nbsp;*save* and *restore* commands can now take filepaths as parameters. |
 
 ## Using the Manager
 
@@ -43,7 +43,7 @@ To Make the class compatible with the manager, it must be a subclass of one of t
 Below are basic examples on how to initialize each type. Note how each one takes differenr parameters to initialize.
 
 ```python
-class GetDate(IntervalScraper):
+class Interval(IntervalScraper):
 
     def __init__(self, cycleTime=30) -> None:
         super().__init__(cycleTime)
@@ -52,7 +52,7 @@ class GetDate(IntervalScraper):
         # Do stuff when init into manager program
         self.driver = Scraper.getDriver()
         self.driver.get("URL")
-    
+  
     def loop(self):
         # Do stuff every self.cycleTime seconds
         return output
@@ -69,7 +69,7 @@ class Scheduled(ScheduledScraper):
         # Do stuff when init into manager program
         self.driver = Scraper.getDriver()
         self.driver.get("URL")
-    
+  
     def execute(self):
         # Do stuff when time hits
         return output
@@ -86,12 +86,10 @@ class Timed(TimedScraper):
         # Do stuff when init into manager program
         self.driver = Scraper.getDriver()
         self.driver.get("URL")
-    
+  
     def loop(self):
         # Do stuff at specific time
         return output
 ```
 
 Note the Scraper.getDriver() function is being used to automatically get a driver.
-
-
