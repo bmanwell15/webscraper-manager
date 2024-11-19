@@ -8,7 +8,7 @@ class Scraper:
     """
         The base class for all scrapers
     """
-    def getDriver(headless: bool=True, maximize: bool=False, loglevel: int=3, implicitlyWait: float=300) -> webdriver.Chrome:
+    def getDriver(headless: bool=True, maximize: bool=False, loglevel: int=3, implicitlyWait: float=300, allowDownload: bool=True) -> webdriver.Chrome:
         """
             Returns a driver
             - headless: If true, the browser will not be shown when running.
@@ -27,12 +27,21 @@ class Scraper:
         
         option.add_argument(f"--log-level={loglevel}")
 
+        if allowDownload:
+            prefs = {
+                "download.prompt_for_download": False,  # Disable download prompt
+                "profile.default_content_settings.popups": 0,  # Disable popup blocking
+                "safebrowsing.enabled": True,  # Allow safe downloads
+            }
+
+            option.add_experimental_option("prefs", prefs)
+
         driver = webdriver.Chrome(options=option)
         driver.implicitly_wait(implicitlyWait)
         return driver
 
 
-    def __init__(self, cycleTime=300, mode="Interval", scheduleModeTime: datetime=None) -> None:
+    def __init__(self, cycleTime=300, mode="Interval", scheduleModeTime: datetime=datetime(2004,11,15)) -> None:
         self.name = "Unnamed Scraper"
         self.mode = mode
         self.cycleTime = cycleTime if mode == "Interval" else "--"
@@ -93,6 +102,23 @@ class ScheduledScraper(Scraper):
     """
     def __init__(self, scheduleModeTime: datetime):
         super().__init__("--", "Schedule", scheduleModeTime)
+    
+    def loop(self):
+        return self.execute()
+    
+    def execute(self):
+        """
+            This function will be called when the desired date and time has been reached.
+        """
+        return "No execute function initialized..."
+
+
+class RunScraper(Scraper):
+    """
+        This scraper will execute once immediently once it is loaded into the program.
+    """
+    def __init__(self):
+        super().__init__("--", "Run")
     
     def loop(self):
         return self.execute()

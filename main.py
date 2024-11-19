@@ -15,7 +15,17 @@ class WebScraperManager:
     webScrapers = {} # Holds the scraper objects themselves
     lock = threading.Lock()
 
+    class status:
+        OK = 1
+        RUNNING = 2
+        DONE = 3
+        WARNING = 4 # Note: Warning can be any number greater than 3
+        ERROR = -1 # Note: Error can be any number less than 0
+
     def createDataRows():
+        """
+            Fills the table with the updated scraper data
+        """
         rows = []
         index = 1
             
@@ -115,6 +125,9 @@ class WebScraperManager:
     
 
     def loadScaper(filepath: str, resoringSave=False):
+        """
+            Loads the scraper into the program given the filepath to the scraper
+        """
         print("Loading scraper from ", filepath, "...", sep="")
         print("Reading file contents...")
 
@@ -136,20 +149,26 @@ class WebScraperManager:
         try:
             scraper._start()
         except:
-            scraper.status = -1
+            scraper.status = WebScraperManager.status.ERROR
             print("Failed to start!")
         
-        threading.Thread(target=WebScraperManager.processScheduler, daemon=True, args=[scraper]).start()
+        threading.Thread(target=WebScraperManager.processScheduler, daemon=True, args=[scraper]).start() # Start the listening thread
         if not resoringSave:
             WebScraperManager.updateDataTable()
     
     def save(filepath: str):
+        """
+            Saves the current scrapers into the specified file
+        """
         filepath = f"{filepath}.data" if not filepath.count(".") else filepath
         saveFile = open(filepath, "w")
         for scraper in WebScraperManager.webScrapers.values():
             print(scraper.filePath, file=saveFile)
     
     def restoreSave(filepath):
+        """
+            Reads the given file and loads the scrapers given the filepaths inside  the save file
+        """
         try:
             saveFile = open(filepath, "r")
         except FileNotFoundError:
@@ -172,8 +191,9 @@ class WebScraperManager:
     def processScheduler(scraper):
         while True:
             if scraper.isDeleted: break
-            if (scraper.nextCycleTimeAt != "--" and time.time() >= scraper.nextCycleTimeAt):
-                scraper.status = 2
+            if scraper.nextCycleTimeAt == "--": break # If there is no upcoming event, remove the thread
+            if time.time() >= scraper.nextCycleTimeAt:
+                scraper.status = WebScraperManager.status.RUNNING
                 if not WebScraperManager.sendingCommand:
                     WebScraperManager.updateDataTable()
 
@@ -183,18 +203,18 @@ class WebScraperManager:
                 except:
                     loopResults = ""
                     catchException = True
-                    scraper.status = -1
+                    scraper.status = WebScraperManager.status.ERROR
                     return
 
                 if not catchException:
-                    scraper.status = 3 if scraper.mode == "Schedule" else 1
+                    scraper.status = WebScraperManager.status.DONE if scraper.mode == "Schedule" or scraper.mode == "Run" else WebScraperManager.status.OK
 
                 scraper.lastCycleTimeAt = time.time()
                 scraper.lastLoopOutput = loopResults
 
                 if scraper.mode == "Interval":
                     scraper.nextCycleTimeAt = time.time() + scraper.cycleTime
-                elif scraper.mode == "Schedule":
+                elif scraper.mode == "Schedule" or scraper.mode == "Run":
                     scraper.nextCycleTimeAt = "--"
                 elif scraper.mode == "Time":
                     scraper.nextCycleTimeAt = time.time() + (24 * 60 * 60) # Seconds in one day
@@ -202,16 +222,15 @@ class WebScraperManager:
                 if not WebScraperManager.sendingCommand:
                     WebScraperManager.updateDataTable()
                 
-                if scraper.mode == "Schedule": break
                 if scraper.mode == "Time": time.sleep(120)
     
 
     def interpretStatusCode(code: int):
-        if code == 1: return "[green]OK"
-        if code == 2: return "[blue]RUNNING"
-        if code == 3: return "[cyan]DONE"
-        if code > 3: return f"[yellow]WARNING [{code}]"
-        if code < 0: return f"[red]ERROR [{code}]"
+        if code == WebScraperManager.status.OK: return "[green]OK"
+        if code == WebScraperManager.status.RUNNING: return "[blue]RUNNING"
+        if code == WebScraperManager.status.DONE: return "[cyan]DONE"
+        if code >= WebScraperManager.status.WARNING: return f"[yellow]WARNING [{code}]"
+        if code <= WebScraperManager.status.ERROR: return f"[red]ERROR [{code}]"
         return f"UNKOWN"
 # END CLASS
 
