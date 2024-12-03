@@ -10,7 +10,7 @@ Created By Benjamin Manwell
 | ------- | ---------- | ------------------------------------------------------------------------------------------------- |
 | 1.0.0   | 10/26/2024 | Initial Release                                                                                   |
 | 1.0.1   | 10/28/2024 | Added quit command.&nbsp;*save* and *restore* commands can now take filepaths as parameters. |
-| 1.0.2   | 11/19/2024 | Added RUN scraper type. Small optimization improvements
+| 1.0.2   | 11/19/2024 | Added RUN scraper type. Small optimization improvements |
 
 ## Using the Manager
 

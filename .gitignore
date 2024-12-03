@@ -1,3 +1,4 @@
 Developer
 __pycache__
 Scrapers/Private
+Scrapers/Libraries/passwords.env

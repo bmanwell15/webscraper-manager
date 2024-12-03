@@ -4,6 +4,7 @@ from rich.box import MINIMAL
 from datetime import datetime
 from sys import exit
 import time
+from traceback import format_exc as formatTraceback
 import threading
 
 
@@ -65,14 +66,13 @@ class WebScraperManager:
         for row in WebScraperManager.createDataRows():
             table.add_row(*row)
         
-        print("\033c", end="")
+        print("\033c", end="") # Clear the console
         WebScraperManager.console.print(table)
         WebScraperManager.lock.release()
 
     
     def processCommand(command: str):
-        command = command.strip()
-        commandSegments = command.split(" ")
+        commandSegments = command.strip().split(" ")
         if commandSegments[0] == "load":
             try:
                 WebScraperManager.loadScaper(commandSegments[1])
@@ -148,9 +148,11 @@ class WebScraperManager:
         print("Calling startup...")
         try:
             scraper._start()
-        except:
+        except Exception as e:
+            print(formatTraceback())
             scraper.status = WebScraperManager.status.ERROR
             print("Failed to start!")
+            input("")
         
         threading.Thread(target=WebScraperManager.processScheduler, daemon=True, args=[scraper]).start() # Start the listening thread
         if not resoringSave:
@@ -200,10 +202,12 @@ class WebScraperManager:
                 catchException = False
                 try:
                     loopResults = scraper.loop()
-                except:
+                except Exception as e:
                     loopResults = ""
                     catchException = True
                     scraper.status = WebScraperManager.status.ERROR
+                    print(formatTraceback())
+                    input("")
                     return
 
                 if not catchException:
